@@ -2,7 +2,6 @@
 
 namespace Rohama\Koin\Sep;
 
-use GuzzleHttp\Client;
 use Psr\Http\Message\ResponseInterface;
 use Rohama\Koin\Support\Currency;
 use Rohama\Koin\Support\PaymentStatus;
@@ -51,12 +50,12 @@ class SepGateway implements PaymentGateway, RefundableGateway
         $this->paymentConstruct($apiKey, $callbackUrl, $sandbox, $extra, $refundable);
 
         Translator::register('Koin-' . self::name, dirname(__DIR__) . '/lang');
-        $this->client = new Client([
-            'base_uri' => 'https://sep.shaparak.ir',
-            'timeout' => 15,
-            'connect_timeout' => 10,
-            'http_errors' => false,
-        ]);
+    }
+
+
+    protected function baseUri(): string
+    {
+        return 'https://sep.shaparak.ir';
     }
 
     public static function configFields(): array
@@ -99,8 +98,8 @@ class SepGateway implements PaymentGateway, RefundableGateway
             throw new InvalidRequestException('SEP requires a callback URL.', gateway: self::name);
         }
 
-        $response = $this->client()->post('/OnlinePG/OnlinePG', [
-            'json' => array_filter(array_merge([
+        $response = $this->client->post('/OnlinePG/OnlinePG', [
+                'json' => array_filter(array_merge([
                 'Action' => 'Token',
                 'TerminalId' => $this->apiKey,
                 'RedirectUrl' => $callbackUrl ?? $this->callbackUrl,
@@ -108,7 +107,7 @@ class SepGateway implements PaymentGateway, RefundableGateway
                 'Amount' => Currency::toRial($currency ?? Currency::TOMAN, $amount),
                 'CellNumber' => $mobile,
             ], $extra), fn ($value) => $value !== null && $value !== ''),
-        ]);
+            ]);
         $data = json_decode($response->getBody()->getContents(), true);
 
         $status = (int) ($data['status'] ?? -1);
@@ -176,13 +175,13 @@ class SepGateway implements PaymentGateway, RefundableGateway
         ?string $currency = null,
         array $extra = [],
     ): VerificationResponse {
-        $response = $this->client()->post('/verifyTxnRandomSessionkey/ipg/VerifyTransaction', [
-            'json' => array_filter(array_merge([
+        $response = $this->client->post('/verifyTxnRandomSessionkey/ipg/VerifyTransaction', [
+                'json' => array_filter(array_merge([
                 'RefNum' => $transactionId,
                 'TerminalNumber' => (int) $this->apiKey,
                 'TxnRandomSessionKey' => isset($extra['TxnRandomSessionKey']) ? (string) $extra['TxnRandomSessionKey'] : null,
             ], $extra), fn ($value) => $value !== null && $value !== ''),
-        ]);
+            ]);
         $data = json_decode($response->getBody()->getContents(), true);
 
         $resultCode = (int) ($data['ResultCode'] ?? -1);
@@ -245,12 +244,12 @@ class SepGateway implements PaymentGateway, RefundableGateway
             throw new InvalidRequestException('SEP refunds are only available for gateways constructed with refundable: true.', gateway: self::name);
         }
 
-        $response = $this->client()->post('/verifyTxnRandomSessionkey/ipg/ReverseTransaction', [
-            'json' => array_filter(array_merge([
+        $response = $this->client->post('/verifyTxnRandomSessionkey/ipg/ReverseTransaction', [
+                'json' => array_filter(array_merge([
                 'RefNum' => $transactionId,
                 'TerminalNumber' => (int) $this->apiKey,
             ], $extra), fn ($value) => $value !== null && $value !== ''),
-        ]);
+            ]);
         $data = json_decode($response->getBody()->getContents(), true);
 
         $resultCode = (int) ($data['ResultCode'] ?? -1);
